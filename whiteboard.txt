@@ -1,0 +1,104 @@
+Chess Project Whiteboard:
+=============================
+
+Board:
+-------------
+** Fields:
+- Board (array)
+   * A 2-D array, with each cell as a space on our chess board
+   * Each cell contains a piece object or of an empty space:
+   * Each piece object is represented by an integer:
+   1 - Pawn      (blank)
+   2 - Bishop    (B)
+   3 - Rook      (R)
+   4 - Knight    (N)
+   5 - Queen     (Q)
+   6 - King      (K)
+   * Each value is either positive or negative depending on the player they belong to
+
+** Methods:
+- Initialize board
+  * Creates our chess board and places pieces in their starting postiions
+- Valid move?
+  * Returns true/false if the piece we want to move and the position we want to move it to are valid or not
+- Move piece
+  * Updates the board with the selected move
+    -> Promotes pawns if they've reached the opposite board side
+- Display board
+  * Outputs the current board state
+- Get Winner
+  * Returns the winner of the game if a winner has been determined
+- Current Player
+  * Returns the current player
+- Checkmate?
+  * Returns true/flase if the board has a checkmate or not
+- Check?
+  * Returns true/false if the board has a check or not
+- Legal moves?
+  * Returns true if there is a legal move for the current player, false otherwise
+- Get legal moves
+  * Returns a list of legal moves for each piece
+
+Piece:
+------------
+** Fields:
+ - Offset
+   * An array representing the piece's move pattern
+ - Symbol
+   * An integer representation of the piece (1 - 6) 
+** Methods:
+  - Get symbol
+    * Returns the piece's symbol
+  - Get valid moves
+    * Returns a list of valid moves for this piece given a row, column, and board size
+
+
+Player:
+--------------
+** Fields:
+- Name (String)
+
+** Methods:
+- Get name
+  * Returns the name of our player
+- Make move
+  * Request player enter piece and move using chess notation (Ex: Queen to the 7th row, first column is: Qa7)
+  * returns an array with the piece we want to move and the position we want to move it to
+
+
+Computer (If implemented)
+--------------
+** Fields:
+- Name (String)
+
+** Methods:
+- Get name
+  * Returns the name of our AI
+- Make move (random, AI)
+  * returns an array with the piece we want to move and the position (randomly generated or chosen by an AI) we want to move it to
+
+
+Game
+----------------
+** Fields:
+- Board (A Board object)
+- Players (A list or hash of game players)
+- Current_Player: (Player object)
+- Winner: (Player object) 
+
+** Methods
+- Game initialize
+  * Creates a game board, creates players, and displays game instructions
+- Game instructions
+  * Outputs a formatted string of instructions for our game
+- Play
+  * Runs our chess game until over
+- Game turn
+  * Play through a single player's turn
+  * Require player to move King if in check
+- Game over?
+  * Returns true if the current player has no legal moves, false otherwise
+- Won?
+  * Returns true if the game is over and ended in a checkmate, false otherwise
+- Stalemate
+  * Returns true if the game is over and ended without a win
