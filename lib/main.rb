@@ -1,4 +1,4 @@
-require './lib/game.rb'
+require './game.rb'
 
 game = Game.new(player1: 'Ashley', player2: 'Ashley-2.0')
 

@@ -1,15 +1,16 @@
-require './lib/board.rb'
-require './lib/player.rb'
+#require './board.rb'
+require './player.rb'
 
 class Game
   attr_reader :board, :players, :winner
 
-  def initialize(player1: 'Ashley', player2: 'Ashley-2.0', board: Board.new)
+  def initialize(player1: 'Ashley', player2: 'Ashley-2.0')
     instructions
-    @board = board
+    #@board = board.new
+    
     @players = { white: Player.new(name: player1),
                  black: Player.new(name: player2) }
-    @board.display_board
+    #@board.display_board
   end
 
   def instructions
