@@ -7,7 +7,7 @@ class Game
   def initialize(player1: 'Ashley', player2: 'Ashley-2.0')
     instructions
     #@board = board.new
-    
+
     @players = { white: Player.new(name: player1),
                  black: Player.new(name: player2) }
     #@board.display_board
