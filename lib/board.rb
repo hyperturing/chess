@@ -5,19 +5,19 @@ class Board
 
   PIECES_BY_VALUES = { 'P' => 1, 'B' => 2, 'R' => 3,
                        'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
-  VALUES_BY_PIECE = {1 => 'P', 2 => 'B', 3 => 'R', 
+  VALUES_BY_PIECE = {1 => 'P', 2 => 'B', 3 => 'R',
                      4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
   OFFSETS =
     {
-      Pawn:[[1, 0]],
-      Bishop:[[1, 1], [-1, -1], [1, -1], [-1, 1]],
-      Rook:[[1, 0], [0, 1], [-1, 0], [0, -1]],
-      Knight:[[2, -1], [1, -2], [1, 2], [2, 1],
-            [-1, -2], [-2, -1], [-1, 2], [-2, 1]],
-      Queen:[[1, 0], [0, 1], [-1, 0], [0, -1],
-            [1, 1], [-1, -1], [1, -1], [-1, 1]],
-      King:[[1, 0], [0, 1], [-1, 0], [0, -1],
-            [1, 1], [-1, -1], [1, -1], [-1, 1]]
+      'P' => [[1, 0]],
+      'B' => [[1, 1], [-1, -1], [1, -1], [-1, 1]],
+      'R' => [[1, 0], [0, 1], [-1, 0], [0, -1]],
+      'N' => [[2, -1], [1, -2], [1, 2], [2, 1],
+              [-1, -2], [-2, -1], [-1, 2], [-2, 1]],
+      'Q' => [[1, 0], [0, 1], [-1, 0], [0, -1],
+              [1, 1], [-1, -1], [1, -1], [-1, 1]],
+      'K' => [[1, 0], [0, 1], [-1, 0], [0, -1],
+              [1, 1], [-1, -1], [1, -1], [-1, 1]]
     }.freeze
   WIDTH = 8
   HEIGHT = 8
@@ -41,16 +41,19 @@ class Board
   end
 
   def update(old_position:, new_position:, piece_value:)
+    new_row, new_column = new_position[0], new_position[1]
+    old_row, old_column = old_position[0], old_position[1]
+
     # Moves piece to space, capturing piece in space
-    @board[new_position[0]][new_position[1]] = piece_value
-    @board[old_position[0]][old_position[1]] = 0
+    @board[new_row][new_column] = piece_value
+    @board[old_row][old_column] = 0
 
     return unless piece_value.abs == 1
 
     # Promote pawn if it's reached the opposite side
-    if new_position[0] == 0 || new_position[0] == 7
-       @board[new_position[0]][new_position[1]] = 5 * piece_value
-    end
+    return unless [0, HEIGHT - 1].include?(new_row)
+
+    @board[new_row][new_column] = 5 * piece_value
   end
 
   def display_board
