@@ -1,4 +1,4 @@
-#require './board.rb'
+require './board.rb'
 require './player.rb'
 
 class Game
@@ -6,11 +6,11 @@ class Game
 
   def initialize(player1: 'Ashley', player2: 'Ashley-2.0')
     instructions
-    #@board = board.new
+    @board = Board.new
 
     @players = { white: Player.new(name: player1),
                  black: Player.new(name: player2) }
-    #@board.display_board
+    @board.display_board
   end
 
   def instructions
@@ -27,9 +27,6 @@ class Game
     puts 'Knight: N'
     puts 'Queen: Q'
     puts 'King: K'
-    puts
-    puts '=======The Board========='
-    puts
   end
 
   def play
