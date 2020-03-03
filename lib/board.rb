@@ -5,11 +5,12 @@ class Board
 
   PIECES_BY_VALUES = { 'P' => 1, 'B' => 2, 'R' => 3,
                        'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
-  VALUES_BY_PIECE = {1 => 'P', 2 => 'B', 3 => 'R',
-                     4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
+  VALUES_BY_PIECE = { 1 => 'P', 2 => 'B', 3 => 'R',
+                      4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
   OFFSETS =
     {
       'P' => [[1, 0]],
+      'p' => [[-1, 0]],
       'B' => [[1, 1], [-1, -1], [1, -1], [-1, 1]],
       'R' => [[1, 0], [0, 1], [-1, 0], [0, -1]],
       'N' => [[2, -1], [1, -2], [1, 2], [2, 1],
@@ -60,5 +61,29 @@ class Board
     puts "\n=======The Board=============="
     output = @board.map { |row| row.map { |value| VALUES_BY_PIECE[value.abs] } }
     output.map { |element| puts element.join('   ') }
+  end
+
+  def get_leaper_legal_moves(position, piece_value)
+    # Returns an array of valid moves for a 'leaper' piece
+    # (ie. Knight(4), King(6), pawn(1))
+    #   Use the piece's move pattern
+    #   and filter out moves that leave the board
+    #   and moves that intersect with allied pieces
+    row = position[0]
+    column = position[1]
+
+    piece_sign = piece_value <=> 0.0
+    offsets = OFFSETS[VALUES_BY_PIECE[piece_value.abs]]
+
+    moves = offsets.each do |offset|
+      offset[0] += row
+      offset[1] += column
+    end
+
+    moves.select do |move|
+      (0..HEIGHT).cover?(move[0]) &&
+        (0..WIDTH).cover?(move[1]) &&
+        (@board[move[0]][move[1]] <=> 0.0) != piece_sign
+    end
   end
 end
