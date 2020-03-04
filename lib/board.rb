@@ -7,7 +7,7 @@ class Board
                        'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
   VALUES_BY_PIECE = { 1 => 'P', 2 => 'B', 3 => 'R',
                       4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
-  OFFSETS =
+  DELTAS =
     {
       'P' => [[1, 0]],
       'p' => [[-1, 0]],
@@ -73,11 +73,11 @@ class Board
     column = position[1]
 
     piece_sign = piece_value <=> 0.0
-    offsets = OFFSETS[VALUES_BY_PIECE[piece_value.abs]]
+    deltas = DELTAS[VALUES_BY_PIECE[piece_value.abs]]
 
-    moves = offsets.each do |offset|
-      offset[0] += row
-      offset[1] += column
+    moves = deltas.each do |delta|
+      delta[0] += row
+      delta[1] += column
     end
 
     moves.select do |move|
@@ -90,35 +90,65 @@ class Board
   def slider_legal_moves(position, piece_value)
     # Returns an array of valid moves for a 'slider' piece
     # (Rook, Bishop, Queen)
-    #   Use the piece's move pattern
-    #   proceed along each direction until we intersect another piece
-    #   filter out moves that leave the board
-    #   and moves that intersect with allied pieces
     row = position[0]
     column = position[1]
 
     piece_sign = piece_value <=> 0.0
-    offsets = OFFSETS[VALUES_BY_PIECE[piece_value.abs]]
+    deltas = DELTAS[VALUES_BY_PIECE[piece_value.abs]]
 
     moves = []
 
-    offsets.each do |offset|
-      offset_vector = Vector.elements(offset)
-      current_move = Vector.elements(position) + offset_vector
+    # For each directional 'delta'
+    #   Proceed in that direction until we intersect another piece
+    #     Pushing each move to our list of legal moves
+    deltas.each do |delta|
+      delta_vector = Vector.elements(delta)
+      current_move = Vector.elements(position) + delta_vector
 
       until current_move.r > WIDTH || current_move.r > HEIGHT || @board[current_move[0]][current_move[1]].nonzero?
         moves.push(current_move.to_a)
-        current_move += offset_vector
+        current_move += delta_vector
       end
       if (@board[current_move[0]][current_move[1]] <=> 0.0) != piece_sign
         moves.push(current_move.to_a)
       end
     end
 
+    # Filter out moves that leave the board
+    #   or contain allied pieces
     moves.select do |move|
       (0..HEIGHT).cover?(move[0]) &&
         (0..WIDTH).cover?(move[1]) &&
         (@board[move[0]][move[1]] <=> 0.0) != piece_sign
+    end
+  end
+
+  def pawn_legal_moves(position, piece_value)
+    row = position[0]
+    column = position[1]
+    piece_sign = piece_value <=> 0.0
+
+    moves = leaper_legal_moves(position, piece_value)
+
+    # Coordinates for each color's diagonals
+    black_corners = [[row - 1, column + 1], [row - 1, column - 1]]
+    white_corners = [[row + 1, column - 1], [row + 1, column + 1]]
+
+    # Depending on if the piece is black/white
+    #   Examine each diagonals in front on the pawn
+    #     Add the diagonal if it's an opposing color
+    if piece_sign == -1
+      black_corners.each do |black_corner|
+        if (@board[black_corner[0]][black_corner[1]] <=> 0.0) != piece_sign
+          moves.push(black_corner)
+        end
+      end
+    elsif piece_sign == 1
+      white_corners.each do |white_corner|
+        if (@board[white_corner[0]][white_corner[1]] <=> 0.0) != piece_sign
+          moves.push(white_corner)
+        end
+      end
     end
   end
 end
