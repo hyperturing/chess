@@ -1,3 +1,4 @@
+require './board.rb'
 class Player
   attr_accessor :name
 
@@ -8,6 +9,6 @@ class Player
   def move
     puts "\n\n#{name}, please enter your move:"
     move_notation = gets.chomp
-    move_notation
+    Board.notation_to_move(move_notation)
   end
 end

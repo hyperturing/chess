@@ -3,10 +3,14 @@ require 'matrix'
 class Board
   attr_accessor :board
 
-  PIECES_BY_VALUES = { 'P' => 1, 'B' => 2, 'R' => 3,
-                       'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
+  @@PIECES = %w[P B R N Q K]
+
+  PIECES_BY_VALUE = { 'P' => 1, 'B' => 2, 'R' => 3,
+                      'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
   VALUES_BY_PIECE = { 1 => 'P', 2 => 'B', 3 => 'R',
                       4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
+
+  RANKS = %w[a b c d e f g h].freeze
   DELTAS =
     {
       'P' => [[1, 0]],
@@ -23,6 +27,20 @@ class Board
   WIDTH = 8
   HEIGHT = 8
 
+  NOTATION_TO_COORDINATES = {}
+  HEIGHT.times do |row|
+    RANKS.each_with_index do |rank, column|
+      NOTATION_TO_COORDINATES[rank + (row + 1).to_s] = [row, column]
+    end
+  end
+
+  def self.notation_to_move(notation)
+    piece_value = PIECES_BY_VALUE[notation[0]]
+    start = NOTATION_TO_COORDINATES[notation[1..2]]
+    finish = NOTATION_TO_COORDINATES[notation[4..5]]
+    [start, finish, piece_value]
+  end
+
   def initialize(fen_string: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     fen_components = fen_string.split(' ')
     fen_board = fen_components[0].split('/')
@@ -34,18 +52,23 @@ class Board
       else
         rank.chars.map do |space|
           if space.match?(/^[[:alpha:]]$/)
-            /[[:lower:]]/.match(space) ? PIECES_BY_VALUES[space.upcase] : -PIECES_BY_VALUES[space.upcase] 
+            /[[:lower:]]/.match(space) ? PIECES_BY_VALUE[space.upcase] : -PIECES_BY_VALUE[space.upcase] 
           end
         end
       end
     end
   end
 
-  def update(old_position:, new_position:, piece_value:)
+  def update(move:)
+    # Parse components of move
+    old_position = move[0]
+    new_position = move[1]
+    piece_value = move[2]
+
     new_row, new_column = new_position[0], new_position[1]
     old_row, old_column = old_position[0], old_position[1]
 
-    # Moves piece to space, capturing piece in space
+    # Moves piece to space, capturing piece occupying space
     @board[new_row][new_column] = piece_value
     @board[old_row][old_column] = 0
 
@@ -57,11 +80,51 @@ class Board
     @board[new_row][new_column] = 5 * piece_value
   end
 
+  def valid_move?(move)
+    # Parse components of move
+    old_position = move[0]
+    new_position = move[1]
+    piece_value = move[2]
+
+    return false if @board[old_position[0]][old_position[1]] != piece_value
+
+    legal_moves(old_position, piece_value).include?(new_position)
+  end
+
   def display_board
     puts "\n=======The Board=============="
     output = @board.map { |row| row.map { |value| VALUES_BY_PIECE[value.abs] } }
     output.map { |element| puts element.join('   ') }
   end
+
+  def hint(move)
+    old_position = move[0]
+    piece_value = move[2]
+    return unless @board[old_position[0]][old_position[1]] == piece_value
+
+    "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{legal_moves(old_position, piece_value)}"
+  end
+
+  def legal_moves(position, piece_value)
+    if [4, 6].include?(piece_value.abs)
+      moves = leaper_legal_moves(position, piece_value)
+    elsif [2, 3, 5].include?(piece_value.abs)
+      moves = slider_legal_moves(position, piece_value)
+    elsif piece_value.abs == 1
+      moves = pawn_legal_moves(position, piece_value)
+    else
+      moves = []
+    end
+
+    # Filter out moves that capture the king
+    return moves unless piece_value != PIECES_BY_VALUE['K']
+
+    moves.reject do |move|
+      @board[move[0]][move[1]] == PIECES_BY_VALUE['K']
+    end
+  end
+
+  private
 
   def leaper_legal_moves(position, piece_value)
     # Returns an array of valid moves for a 'leaper' piece
@@ -80,18 +143,12 @@ class Board
       delta[1] += column
     end
 
-    moves.select do |move|
-      (0..HEIGHT).cover?(move[0]) &&
-        (0..WIDTH).cover?(move[1]) &&
-        (@board[move[0]][move[1]] <=> 0.0) != piece_sign
-    end
+    moves = filter_moves(moves, piece_sign)
   end
 
   def slider_legal_moves(position, piece_value)
     # Returns an array of valid moves for a 'slider' piece
     # (Rook, Bishop, Queen)
-    row = position[0]
-    column = position[1]
 
     piece_sign = piece_value <=> 0.0
     deltas = DELTAS[VALUES_BY_PIECE[piece_value.abs]]
@@ -103,9 +160,9 @@ class Board
     #     Pushing each move to our list of legal moves
     deltas.each do |delta|
       delta_vector = Vector.elements(delta)
-      current_move = Vector.elements(position) + delta_vector
+      current_move = Vector.elements(position)
 
-      until current_move.r > WIDTH || current_move.r > HEIGHT || @board[current_move[0]][current_move[1]].nonzero?
+      until current_move.r > WIDTH - 1 || current_move.r > HEIGHT - 1 || @board[current_move[0]][current_move[1]].nonzero?
         moves.push(current_move.to_a)
         current_move += delta_vector
       end
@@ -114,13 +171,7 @@ class Board
       end
     end
 
-    # Filter out moves that leave the board
-    #   or contain allied pieces
-    moves.select do |move|
-      (0..HEIGHT).cover?(move[0]) &&
-        (0..WIDTH).cover?(move[1]) &&
-        (@board[move[0]][move[1]] <=> 0.0) != piece_sign
-    end
+    moves = filter_moves(moves, piece_sign)
   end
 
   def pawn_legal_moves(position, piece_value)
@@ -149,6 +200,18 @@ class Board
           moves.push(white_corner)
         end
       end
+    end
+
+    moves = filter_moves(moves, piece_sign)
+  end
+
+  def filter_moves(moves, piece_sign)
+    # Filter out moves that leave the board
+    #   or contain allied pieces
+    moves.select do |move|
+      (0..HEIGHT - 1).cover?(move[0]) &&
+        (0..WIDTH - 1).cover?(move[1]) &&
+        (@board[move[0]][move[1]] <=> 0.0) != piece_sign
     end
   end
 end
