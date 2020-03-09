@@ -7,7 +7,7 @@ class Board
 
   PIECES_BY_VALUE = { 'P' => 1, 'B' => 2, 'R' => 3,
                       'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
-  VALUES_BY_PIECE = { 1 => 'P', 2 => 'B', 3 => 'R',
+  VALUES_BY_PIECE = { 1 => 'P', -1 => 'p', 2 => 'B', 3 => 'R',
                       4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
 
   RANKS = %w[a b c d e f g h].freeze
@@ -136,7 +136,13 @@ class Board
     column = position[1]
 
     piece_sign = piece_value <=> 0.0
-    deltas = DELTAS[VALUES_BY_PIECE[piece_value.abs]]
+    deltas_copy = deep_copy(DELTAS)
+    if piece_value.abs != 1
+      deltas = deltas_copy[VALUES_BY_PIECE[piece_value.abs]]
+    else
+      piece = VALUES_BY_PIECE[piece_value]
+      deltas = deltas_copy[piece]
+    end
 
     moves = deltas.each do |delta|
       delta[0] += row
@@ -151,7 +157,8 @@ class Board
     # (Rook, Bishop, Queen)
 
     piece_sign = piece_value <=> 0.0
-    deltas = DELTAS[VALUES_BY_PIECE[piece_value.abs]]
+    deltas_copy = deep_copy(DELTAS)
+    deltas = deltas_copy[VALUES_BY_PIECE[piece_value.abs]]
 
     moves = []
 
@@ -184,19 +191,24 @@ class Board
     # Coordinates for each color's diagonals
     black_corners = [[row - 1, column + 1], [row - 1, column - 1]]
     white_corners = [[row + 1, column - 1], [row + 1, column + 1]]
+    black_corners = filter_moves(black_corners, piece_sign)
+    white_corners = filter_moves(white_corners, piece_sign)
 
     # Depending on if the piece is black/white
     #   Examine each diagonals in front on the pawn
     #     Add the diagonal if it's an opposing color
+
     if piece_sign == -1
       black_corners.each do |black_corner|
-        if (@board[black_corner[0]][black_corner[1]] <=> 0.0) != piece_sign
+        if (@board[black_corner[0]][black_corner[1]] <=> 0.0) != piece_sign && @board[black_corner[0]][black_corner[1]].nonzero?
+        #if (@board[black_corner[0]][black_corner[1]] <=> 0.0) != piece_sign
           moves.push(black_corner)
         end
       end
     elsif piece_sign == 1
       white_corners.each do |white_corner|
-        if (@board[white_corner[0]][white_corner[1]] <=> 0.0) != piece_sign
+        if (@board[white_corner[0]][white_corner[1]] <=> 0.0) != piece_sign && @board[white_corner[0]][white_corner[1]].nonzero?
+        #if (@board[white_corner[0]][white_corner[1]] <=> 0.0) != piece_sign
           moves.push(white_corner)
         end
       end
@@ -214,4 +226,12 @@ class Board
         (@board[move[0]][move[1]] <=> 0.0) != piece_sign
     end
   end
+
+  def deep_copy(o)
+    Marshal.load(Marshal.dump(o))
+  end
 end
+
+board = Board.new
+
+board.all_legal_moves
