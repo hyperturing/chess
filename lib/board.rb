@@ -105,6 +105,22 @@ class Board
     "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{legal_moves(old_position, piece_value)}"
   end
 
+  def all_legal_moves
+    all_moves = NOTATION_TO_COORDINATES.inject({}) do |all_moves, (notation, position)|
+      piece_value = @board[position[0]][position[1]]
+
+      if piece_value.zero?
+        moves = []
+      else
+        moves = legal_moves(position, piece_value)
+      end
+      puts "Valid moves for #{notation}: #{moves}"
+      all_moves[notation] = moves
+      all_moves
+    end
+  end
+
+
   def legal_moves(position, piece_value)
     if [4, 6].include?(piece_value.abs)
       moves = leaper_legal_moves(position, piece_value)
@@ -232,6 +248,3 @@ class Board
   end
 end
 
-board = Board.new
-
-board.all_legal_moves
