@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 require 'matrix'
 class Board
-  attr_accessor :board
+  attr_accessor :board, :current_player
 
   @@PIECES = %w[P B R N Q K]
 
@@ -34,6 +34,7 @@ class Board
     end
   end
 
+  # Class methods:
   def self.notation_to_move(notation)
     piece_value = PIECES_BY_VALUE[notation[0]]
     start = NOTATION_TO_COORDINATES[notation[1..2]]
@@ -41,6 +42,9 @@ class Board
     [start, finish, piece_value]
   end
 
+  # Instance Methods:
+  #===================
+  # Board initialization method:
   def initialize(fen_string: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     fen_components = fen_string.split(' ')
     fen_board = fen_components[0].split('/')
@@ -59,6 +63,7 @@ class Board
     end
   end
 
+  # Board updater method:
   def update(move:)
     # Parse components of move
     old_position = move[0]
@@ -80,17 +85,7 @@ class Board
     @board[new_row][new_column] = 5 * piece_value
   end
 
-  def valid_move?(move)
-    # Parse components of move
-    old_position = move[0]
-    new_position = move[1]
-    piece_value = move[2]
-
-    return false if @board[old_position[0]][old_position[1]] != piece_value
-
-    legal_moves(old_position, piece_value).include?(new_position)
-  end
-
+  # Board read (i.e display or view) methods:
   def display_board
     puts "\n=======The Board=============="
     output = @board.map { |row| row.map { |value| VALUES_BY_PIECE[value.abs] } }
@@ -108,18 +103,20 @@ class Board
   def all_legal_moves
     all_moves = NOTATION_TO_COORDINATES.inject({}) do |all_moves, (notation, position)|
       piece_value = @board[position[0]][position[1]]
+      piece_sign = piece_value <=> 0.0
+      current_player_sign = @current_player == :white ? 1 : -1
 
-      if piece_value.zero?
+      if piece_value.zero? || piece_sign != current_player_sign
         moves = []
       else
         moves = legal_moves(position, piece_value)
       end
-      puts "Valid moves for #{notation}: #{moves}"
+      #puts "Valid moves for #{PIECES_BY_VALUE[piece_value]} at #{notation}: #{moves}"
       all_moves[notation] = moves
       all_moves
     end
+    @all_moves = all_moves
   end
-
 
   def legal_moves(position, piece_value)
     if [4, 6].include?(piece_value.abs)
@@ -138,6 +135,42 @@ class Board
     moves.reject do |move|
       @board[move[0]][move[1]] == PIECES_BY_VALUE['K']
     end
+  end
+
+  def filter_moves(moves, piece_sign)
+    # Filter out moves that leave the board
+    #   or contain allied pieces
+    moves.select do |move|
+      (0..HEIGHT - 1).cover?(move[0]) &&
+        (0..WIDTH - 1).cover?(move[1]) &&
+        (@board[move[0]][move[1]] <=> 0.0) != piece_sign
+    end
+  end
+
+  def valid_move?(move)
+    # Parse components of move
+    old_position = move[0]
+    new_position = move[1]
+    piece_value = move[2]
+
+    return false if @board[old_position[0]][old_position[1]] != piece_value
+
+    legal_moves(old_position, piece_value).include?(new_position)
+  end
+
+  def check?
+    # Temporarily remove the king from our board
+    #   This allows a piece to capture from the space the king occupied
+    king = @current_player == :white ? -6 : 6
+    king_location = Matrix[*@board].index(king).to_a
+    @board[king_location[0]][king_location[1]] = king.abs / king
+
+    next_moves = all_legal_moves
+
+    # Put the king back, please
+    @board[king_location[0]][king_location[1]] = king
+
+    !next_moves.select { |_, moves| moves.include?(king_location) }.empty?
   end
 
   private
@@ -185,11 +218,14 @@ class Board
       delta_vector = Vector.elements(delta)
       current_move = Vector.elements(position)
 
-      until current_move.r > WIDTH - 1 || current_move.r > HEIGHT - 1 || @board[current_move[0]][current_move[1]].nonzero?
-        moves.push(current_move.to_a)
+      loop do
         current_move += delta_vector
+        break if current_move.r >= WIDTH - 1 || current_move.r >= HEIGHT - 1 || @board[current_move[0]][current_move[1]].nonzero?
+
+        moves.push(current_move.to_a)
       end
-      if (@board[current_move[0]][current_move[1]] <=> 0.0) != piece_sign
+
+      if current_move.r <= WIDTH - 1 && current_move.r <= HEIGHT - 1 && (@board[current_move[0]][current_move[1]] <=> 0.0) != piece_sign
         moves.push(current_move.to_a)
       end
     end
@@ -217,14 +253,12 @@ class Board
     if piece_sign == -1
       black_corners.each do |black_corner|
         if (@board[black_corner[0]][black_corner[1]] <=> 0.0) != piece_sign && @board[black_corner[0]][black_corner[1]].nonzero?
-        #if (@board[black_corner[0]][black_corner[1]] <=> 0.0) != piece_sign
           moves.push(black_corner)
         end
       end
     elsif piece_sign == 1
       white_corners.each do |white_corner|
         if (@board[white_corner[0]][white_corner[1]] <=> 0.0) != piece_sign && @board[white_corner[0]][white_corner[1]].nonzero?
-        #if (@board[white_corner[0]][white_corner[1]] <=> 0.0) != piece_sign
           moves.push(white_corner)
         end
       end
@@ -233,18 +267,8 @@ class Board
     moves = filter_moves(moves, piece_sign)
   end
 
-  def filter_moves(moves, piece_sign)
-    # Filter out moves that leave the board
-    #   or contain allied pieces
-    moves.select do |move|
-      (0..HEIGHT - 1).cover?(move[0]) &&
-        (0..WIDTH - 1).cover?(move[1]) &&
-        (@board[move[0]][move[1]] <=> 0.0) != piece_sign
-    end
-  end
-
-  def deep_copy(o)
-    Marshal.load(Marshal.dump(o))
+  def deep_copy(object)
+    Marshal.load(Marshal.dump(object))
   end
 end
 
