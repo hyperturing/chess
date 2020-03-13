@@ -136,35 +136,39 @@ class Board
     piece_value = @board[old_position[0]][old_position[1]]
     return unless @board[old_position[0]][old_position[1]] == piece_value
 
-    "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{moves_for_piece(old_position, piece_value)}"
+    "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{moves_for_piece(old_position)}"
   end
 
-  def all_legal_moves
+  def moves_for_all_pieces
     all_moves = NOTATION_TO_COORDINATES.inject({}) do |all_moves, (notation, position)|
       piece_value = @board[position[0]][position[1]]
       piece_sign = piece_value <=> 0.0
-      current_player_sign = @current_player == :white ? 1 : -1
+      current_player_sign = @current_player == :white ? -1 : 1
 
       # We cannot move pieces that aren't ours
       if piece_value.zero? || piece_sign != current_player_sign
         moves = []
       else
-        moves = moves_for_piece(position, piece_value)
+        moves = moves_for_piece(position)
       end
 
       all_moves[notation] = moves
       all_moves
     end
-    @all_moves = all_moves
+    all_moves
   end
 
-  def moves_for_piece(position, piece_value)
+  def moves_for_piece(position)
+    row = position[0]
+    column = position[1]
+    piece_value = @board[row][column]
+
     if [4, 6].include?(piece_value.abs)
-      moves = leaper_moves(position, piece_value)
+      moves = leaper_moves(position)
     elsif [2, 3, 5].include?(piece_value.abs)
-      moves = slider_moves(position, piece_value)
+      moves = slider_moves(position)
     elsif piece_value.abs == 1
-      moves = pawn_moves(position, piece_value)
+      moves = pawn_moves(position)
     else
       moves = []
     end
@@ -197,7 +201,7 @@ class Board
 
     return false if @board[old_position[0]][old_position[1]] != piece_value
 
-    moves_for_piece(old_position, piece_value).include?(new_position)
+    moves_for_piece(old_position).include?(new_position)
   end
 
   def check?
@@ -207,7 +211,7 @@ class Board
     king_location = Matrix[*@board].index(king).to_a
     @board[king_location[0]][king_location[1]] = king.abs / king
 
-    next_moves = all_legal_moves
+    next_moves = moves_for_all_pieces
 
     # Put the king back, please
     @board[king_location[0]][king_location[1]] = king
@@ -217,7 +221,7 @@ class Board
 
   private
 
-  def leaper_moves(position, piece_value)
+  def leaper_moves(position)
     # Returns an array of valid moves for a 'leaper' piece
     # (ie. Knight(4), King(6), pawn(1))
     #   Use the piece's move pattern
@@ -225,6 +229,7 @@ class Board
     #   and moves that intersect with allied pieces
     row = position[0]
     column = position[1]
+    piece_value = @board[row][column]
 
     piece_sign = piece_value <=> 0.0
     deltas_copy = deep_copy(DELTAS)
@@ -243,9 +248,12 @@ class Board
     moves = filter_moves(moves, piece_sign)
   end
 
-  def slider_moves(position, piece_value)
+  def slider_moves(position)
     # Returns an array of valid moves for a 'slider' piece
     # (Rook, Bishop, Queen)
+    row = position[0]
+    column = position[1]
+    piece_value = @board[row][column]
 
     piece_sign = piece_value <=> 0.0
     deltas_copy = deep_copy(DELTAS)
@@ -275,12 +283,13 @@ class Board
     moves = filter_moves(moves, piece_sign)
   end
 
-  def pawn_moves(position, piece_value)
+  def pawn_moves(position)
     row = position[0]
     column = position[1]
+    piece_value = @board[row][column]
     piece_sign = piece_value <=> 0.0
 
-    moves = leaper_moves(position, piece_value)
+    moves = leaper_moves(position)
 
     # Coordinates for each color's diagonals
     black_corners = [[row - 1, column + 1], [row - 1, column - 1]]
@@ -315,20 +324,8 @@ class Board
 end
 
 board = Board.new
-board.board[6] = [0, 0, 0, 0, 0, 0, 0, 0]
 board.board[1] = [0, 0, 0, 0, 0, 0, 0, 0]
+board.board[6] = [0, 0, 0, 0, 0, 0, 0, 0]
 
-puts 'Board before move:'
 board.display_board
-move1 = [[0, 3], [3, 0], 5]
-board.update(move: move1)
-move2 = [[3, 0], [7, 0], 5]
-board.update(move: move2)
-
-puts 'Board after move:'
-board.display_board
-
-board.undo
-
-puts 'Board after undo:'
-board.display_board
+puts board.all_moves
