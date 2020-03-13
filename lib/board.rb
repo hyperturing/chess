@@ -11,6 +11,10 @@ class Board
                       4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
 
   RANKS = %w[a b c d e f g h].freeze
+
+  # Each piece has:
+  #   'Slider' Pieces: A list of directions it can 'slide' to from it's current position
+  #   'Leaper' Pieces: A list of offsets that it can 'leap' to from it's current position
   DELTAS =
     {
       'P' => [[1, 0]],
@@ -50,6 +54,13 @@ class Board
     fen_board = fen_components[0].split('/')
     @current_player = fen_components[1] == 'w' ? :white : :black
 
+    # Keep a log of moves to allow for reversibility
+    #   A move log is a 2-D array that contains move arrays
+    #     The move array contains:
+    #       Location to move from and the piece value that's moving
+    #       Location to move to and the captured piece value
+    @move_log = []
+
     @board = fen_board.map do |rank|
       if rank.match?(/^[[:digit:]]$/)
         Array.new(rank.to_i) { 0 }
@@ -63,29 +74,57 @@ class Board
     end
   end
 
-  # Board updater method:
+  # Board updater methods:
+  ###########################
   def update(move:)
     # Parse components of move
     old_position = move[0]
     new_position = move[1]
-    piece_value = move[2]
+    piece_value = @board[old_position[0]][old_position[1]]
+    new_row, new_column = new_position[0], new_position[1]
+    old_row, old_column = old_position[0], old_position[1]
+
+    # Keep log of move with piece values for reversibility
+    captured_piece_value = @board[new_row][new_column]
+    move_from = [old_position, piece_value]
+    move_to = [new_position, captured_piece_value]
+    @move_log.push([move_from, move_to])
+
+    # Moves piece to space, capturing piece occupying space
+    # NOTE: Aside from undo or check?, this the only time we directly modify the board field
+    # PLEASE DON'T modfy the board field unless you have a good reason
+    @board[new_row][new_column] = piece_value
+    @board[old_row][old_column] = 0
+
+    # Promote pawn if it's reached the opposite side
+    return unless piece_value.abs == 1 && [0, HEIGHT - 1].include?(new_row)
+
+    @board[new_row][new_column] = PIECES_BY_VALUE['Q'] * piece_value
+  end
+
+  def undo
+    # Reverts board changes performed by undo
+    #  Uses our most recent move
+    move = @move_log.pop
+
+    move_from = move[0]
+    move_to = move[1]
+
+    old_position = move_from[0]
+    piece_value = move_from[1]
+
+    new_position = move_to[0]
+    captured_piece_value = move_to[1]
 
     new_row, new_column = new_position[0], new_position[1]
     old_row, old_column = old_position[0], old_position[1]
 
-    # Moves piece to space, capturing piece occupying space
-    @board[new_row][new_column] = piece_value
-    @board[old_row][old_column] = 0
-
-    return unless piece_value.abs == 1
-
-    # Promote pawn if it's reached the opposite side
-    return unless [0, HEIGHT - 1].include?(new_row)
-
-    @board[new_row][new_column] = 5 * piece_value
+    @board[new_row][new_column] = captured_piece_value
+    @board[old_row][old_column] = piece_value
   end
 
   # Board read (i.e display or view) methods:
+  ############################################
   def display_board
     puts "\n=======The Board=============="
     output = @board.map { |row| row.map { |value| VALUES_BY_PIECE[value.abs] } }
@@ -94,10 +133,10 @@ class Board
 
   def hint(move)
     old_position = move[0]
-    piece_value = move[2]
+    piece_value = @board[old_position[0]][old_position[1]]
     return unless @board[old_position[0]][old_position[1]] == piece_value
 
-    "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{legal_moves(old_position, piece_value)}"
+    "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{moves_for_piece(old_position, piece_value)}"
   end
 
   def all_legal_moves
@@ -106,25 +145,26 @@ class Board
       piece_sign = piece_value <=> 0.0
       current_player_sign = @current_player == :white ? 1 : -1
 
+      # We cannot move pieces that aren't ours
       if piece_value.zero? || piece_sign != current_player_sign
         moves = []
       else
-        moves = legal_moves(position, piece_value)
+        moves = moves_for_piece(position, piece_value)
       end
-      #puts "Valid moves for #{PIECES_BY_VALUE[piece_value]} at #{notation}: #{moves}"
+
       all_moves[notation] = moves
       all_moves
     end
     @all_moves = all_moves
   end
 
-  def legal_moves(position, piece_value)
+  def moves_for_piece(position, piece_value)
     if [4, 6].include?(piece_value.abs)
-      moves = leaper_legal_moves(position, piece_value)
+      moves = leaper_moves(position, piece_value)
     elsif [2, 3, 5].include?(piece_value.abs)
-      moves = slider_legal_moves(position, piece_value)
+      moves = slider_moves(position, piece_value)
     elsif piece_value.abs == 1
-      moves = pawn_legal_moves(position, piece_value)
+      moves = pawn_moves(position, piece_value)
     else
       moves = []
     end
@@ -147,20 +187,22 @@ class Board
     end
   end
 
+  # Boolean board status methods
+  ##############################
   def valid_move?(move)
     # Parse components of move
     old_position = move[0]
     new_position = move[1]
-    piece_value = move[2]
+    piece_value = @board[old_position[0]][old_position[1]]
 
     return false if @board[old_position[0]][old_position[1]] != piece_value
 
-    legal_moves(old_position, piece_value).include?(new_position)
+    moves_for_piece(old_position, piece_value).include?(new_position)
   end
 
   def check?
     # Temporarily remove the king from our board
-    #   This allows a piece to capture from the space the king occupied
+    #   This allows a piece to (potentially) capture the king's space
     king = @current_player == :white ? -6 : 6
     king_location = Matrix[*@board].index(king).to_a
     @board[king_location[0]][king_location[1]] = king.abs / king
@@ -175,7 +217,7 @@ class Board
 
   private
 
-  def leaper_legal_moves(position, piece_value)
+  def leaper_moves(position, piece_value)
     # Returns an array of valid moves for a 'leaper' piece
     # (ie. Knight(4), King(6), pawn(1))
     #   Use the piece's move pattern
@@ -201,7 +243,7 @@ class Board
     moves = filter_moves(moves, piece_sign)
   end
 
-  def slider_legal_moves(position, piece_value)
+  def slider_moves(position, piece_value)
     # Returns an array of valid moves for a 'slider' piece
     # (Rook, Bishop, Queen)
 
@@ -233,12 +275,12 @@ class Board
     moves = filter_moves(moves, piece_sign)
   end
 
-  def pawn_legal_moves(position, piece_value)
+  def pawn_moves(position, piece_value)
     row = position[0]
     column = position[1]
     piece_sign = piece_value <=> 0.0
 
-    moves = leaper_legal_moves(position, piece_value)
+    moves = leaper_moves(position, piece_value)
 
     # Coordinates for each color's diagonals
     black_corners = [[row - 1, column + 1], [row - 1, column - 1]]
@@ -272,3 +314,21 @@ class Board
   end
 end
 
+board = Board.new
+board.board[6] = [0, 0, 0, 0, 0, 0, 0, 0]
+board.board[1] = [0, 0, 0, 0, 0, 0, 0, 0]
+
+puts 'Board before move:'
+board.display_board
+move1 = [[0, 3], [3, 0], 5]
+board.update(move: move1)
+move2 = [[3, 0], [7, 0], 5]
+board.update(move: move2)
+
+puts 'Board after move:'
+board.display_board
+
+board.undo
+
+puts 'Board after undo:'
+board.display_board
