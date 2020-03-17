@@ -7,8 +7,9 @@ class Board
 
   PIECES_BY_VALUE = { 'P' => 1, 'B' => 2, 'R' => 3,
                       'N' => 4, 'Q' => 5, 'K' => 6 }.freeze
-  VALUES_BY_PIECE = { 1 => 'P', -1 => 'p', 2 => 'B', 3 => 'R',
-                      4 => 'N', 5 => 'Q', 6 => 'K' }.freeze
+  VALUES_BY_PIECE = { 0 => ' ', 1 => 'P', -1 => 'p',
+                      2 => 'B', 3 => 'R', 4 => 'N',
+                      5 => 'Q', 6 => 'K' }.freeze
 
   RANKS = %w[a b c d e f g h].freeze
 
@@ -132,21 +133,48 @@ class Board
   end
 
   def hint(move)
-    old_position = move[0]
-    piece_value = @board[old_position[0]][old_position[1]]
-    return unless @board[old_position[0]][old_position[1]] == piece_value
+    if @board.empty_move?
+      'Empty move!!'
+    else
+      old_position = move[0]
+      piece_value = @board[old_position[0]][old_position[1]]
+      return unless @board[old_position[0]][old_position[1]] == piece_value
 
-    "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{moves_for_piece(old_position)}"
+      "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{moves_for_piece(old_position)}"
+    end
   end
 
-  def moves_for_all_pieces
+  def all_legal_moves
+    all_moves = moves_for_all_pieces(@current_player)
+    allowed_moves = {}
+    return all_moves unless check?
+
+    # If the board is in check
+    #   Iterate through each potential move for this piece
+    #     Update the board with that move
+    #     If the board is now in check
+    #       Disallow the move
+    #     'Undo' the board update
+    all_moves.each_pair do |start_notation, finishes|
+      start = NOTATION_TO_COORDINATES[start_notation]
+      allowed_moves[start] = []
+      finishes.each do |finish|
+        update(move: [start, finish])
+        allowed_moves[start].push(finish) unless check?
+        undo
+      end
+    end
+    allowed_moves
+  end
+
+  def moves_for_all_pieces(player)
     all_moves = NOTATION_TO_COORDINATES.inject({}) do |all_moves, (notation, position)|
       piece_value = @board[position[0]][position[1]]
       piece_sign = piece_value <=> 0.0
-      current_player_sign = @current_player == :white ? -1 : 1
+      player_sign = player == :white ? 1 : -1
 
       # We cannot move pieces that aren't ours
-      if piece_value.zero? || piece_sign != current_player_sign
+      if piece_value.zero? || piece_sign != player_sign
         moves = []
       else
         moves = moves_for_piece(position)
@@ -194,9 +222,12 @@ class Board
   # Boolean board status methods
   ##############################
   def valid_move?(move)
+    return false if empty_move?(move)
+
     # Parse components of move
     old_position = move[0]
     new_position = move[1]
+
     piece_value = @board[old_position[0]][old_position[1]]
 
     return false if @board[old_position[0]][old_position[1]] != piece_value
@@ -204,19 +235,28 @@ class Board
     moves_for_piece(old_position).include?(new_position)
   end
 
+  def empty_move?(move)
+    move.all?(&:nil?)
+  end
+
   def check?
     # Temporarily remove the king from our board
     #   This allows a piece to (potentially) capture the king's space
-    king = @current_player == :white ? -6 : 6
+    attacking_player = @current_player == :white ? :black : :white
+    king = @current_player == :white ? 6 : -6
     king_location = Matrix[*@board].index(king).to_a
     @board[king_location[0]][king_location[1]] = king.abs / king
 
-    next_moves = moves_for_all_pieces
+    next_moves = moves_for_all_pieces(attacking_player)
 
     # Put the king back, please
     @board[king_location[0]][king_location[1]] = king
 
     !next_moves.select { |_, moves| moves.include?(king_location) }.empty?
+  end
+
+  def legal_moves?
+    all_legal_moves.values.any? { |move| !move.empty? }
   end
 
   private
@@ -322,10 +362,3 @@ class Board
     Marshal.load(Marshal.dump(object))
   end
 end
-
-board = Board.new
-board.board[1] = [0, 0, 0, 0, 0, 0, 0, 0]
-board.board[6] = [0, 0, 0, 0, 0, 0, 0, 0]
-
-board.display_board
-puts board.all_moves

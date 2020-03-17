@@ -44,7 +44,7 @@ class Game
     current_player = @board.current_player
     user_input = @players[@board.current_player].move
     until @board.valid_move?(user_input)
-      puts "Invalid move #{@board.hint}"
+      puts "Invalid move #{@board.hint(user_input)}"
       user_input = @players[@board.current_player].move
     end
     @board.update(move: user_input)
@@ -54,6 +54,10 @@ class Game
 
   def over?
     !@board.legal_moves?
+  end
+
+  def checkmate?
+    over? && @board.check?
   end
 
   def won?
