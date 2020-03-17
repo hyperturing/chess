@@ -49,7 +49,8 @@ class Game
     end
     @board.update(move: user_input)
     @winner = current_player if won?
-    board.display_board
+    @board.display_board
+    @board.next_player
   end
 
   def over?

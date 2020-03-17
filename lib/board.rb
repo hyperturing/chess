@@ -124,17 +124,29 @@ class Board
     @board[old_row][old_column] = piece_value
   end
 
+  def next_player
+    if @current_player == :white
+      @current_player = :black 
+    else
+      @current_player = :white
+    end
+  end
+
   # Board read (i.e display or view) methods:
   ############################################
   def display_board
     puts "\n=======The Board=============="
-    output = @board.map { |row| row.map { |value| VALUES_BY_PIECE[value.abs] } }
+    output = @board.map do |row|
+      row.map do |value|
+        value.abs != 1 ? VALUES_BY_PIECE[value.abs] : VALUES_BY_PIECE[value]
+      end
+    end
     output.map { |element| puts element.join('   ') }
   end
 
   def hint(move)
-    if @board.empty_move?
-      'Empty move!!'
+    if empty_move?(move)
+      "\nEmpty move!!"
     else
       old_position = move[0]
       piece_value = @board[old_position[0]][old_position[1]]
