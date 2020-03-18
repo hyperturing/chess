@@ -18,8 +18,8 @@ class Board
   #   'Leaper' Pieces: A list of offsets that it can 'leap' to from it's current position
   DELTAS =
     {
-      'P' => [[1, 0]],
-      'p' => [[-1, 0]],
+      'P' => [[2, 0], [1, 0]],
+      'p' => [[-2, 0], [-1, 0]],
       'B' => [[1, 1], [-1, -1], [1, -1], [-1, 1]],
       'R' => [[1, 0], [0, 1], [-1, 0], [0, -1]],
       'N' => [[2, -1], [1, -2], [1, 2], [2, 1],
@@ -290,6 +290,7 @@ class Board
     else
       piece = VALUES_BY_PIECE[piece_value]
       deltas = deltas_copy[piece]
+      deltas = [deltas[1]] if row != 1 && row != 6
     end
 
     moves = deltas.each do |delta|
