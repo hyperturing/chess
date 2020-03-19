@@ -33,9 +33,11 @@ class Board
   HEIGHT = 8
 
   NOTATION_TO_COORDINATES = {}
+  COORDINATES_TO_NOTATION = {}
   HEIGHT.times do |row|
     RANKS.each_with_index do |rank, column|
       NOTATION_TO_COORDINATES[rank + (row + 1).to_s] = [row, column]
+      COORDINATES_TO_NOTATION[[row, column]] = [rank + (row + 1).to_s]
     end
   end
 
@@ -45,6 +47,10 @@ class Board
     start = NOTATION_TO_COORDINATES[notation[1..2]]
     finish = NOTATION_TO_COORDINATES[notation[4..5]]
     [start, finish, piece_value]
+  end
+
+  def self.move_to_notation(move)
+    COORDINATES_TO_NOTATION[move]
   end
 
   # Instance Methods:
@@ -135,11 +141,15 @@ class Board
   # Board read (i.e display or view) methods:
   ############################################
   def display_board
-    puts "\n=======The Board=============="
-    output = @board.map do |row|
-      row.map do |value|
+    puts "\n============The Board=============="
+    puts '--------------Ranks----------------'
+    puts '      ' + RANKS.join('   ')
+    puts "-----------------------------------\n"
+    puts
+    output = @board.map.with_index do |row, index|
+      [(index + 1).to_s + ' |', row.map do |value|
         value.abs != 1 ? VALUES_BY_PIECE[value.abs] : VALUES_BY_PIECE[value]
-      end
+      end]
     end
     output.map { |element| puts element.join('   ') }
   end
@@ -152,7 +162,8 @@ class Board
       piece_value = @board[old_position[0]][old_position[1]]
       return unless @board[old_position[0]][old_position[1]] == piece_value
 
-      "Valid moves for #{VALUES_BY_PIECE[piece_value]}: #{moves_for_piece(old_position)}"
+      hint = "\nValid moves for #{VALUES_BY_PIECE[piece_value.abs]}: "
+      hint + moves_for_piece(old_position).map { |move| Board.move_to_notation(move) }.join(' ')
     end
   end
 
